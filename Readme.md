@@ -34,28 +34,28 @@ Annotate sends an annotation.
 #### func (*Client) Decr
 
 ```go
-func (c *Client) Decr(name string) error
+func (c *Client) Decr(name string, tags ...string) error
 ```
 Decr decrements the counter for the given bucket by 1 at a rate of 1.
 
 #### func (*Client) DecrBy
 
 ```go
-func (c *Client) DecrBy(name string, value int) error
+func (c *Client) DecrBy(name string, value int, tags ...string) error
 ```
 DecrBy decrements the counter for the given bucket by N at a rate of 1.
 
 #### func (*Client) Decrement
 
 ```go
-func (c *Client) Decrement(name string, count int, rate float64) error
+func (c *Client) Decrement(name string, count int, rate float64, tags ...string) error
 ```
 Decrement decrements the counter for the given bucket.
 
 #### func (*Client) Duration
 
 ```go
-func (c *Client) Duration(name string, duration time.Duration) error
+func (c *Client) Duration(name string, duration time.Duration, tags ...string) error
 ```
 Duration records time spent for the given bucket with time.Duration.
 
@@ -71,14 +71,14 @@ Unsupported.
 #### func (*Client) Gauge
 
 ```go
-func (c *Client) Gauge(name string, value int) error
+func (c *Client) Gauge(name string, value int, tags ...string) error
 ```
 Gauge records arbitrary values for the given bucket.
 
 #### func (*Client) Histogram
 
 ```go
-func (c *Client) Histogram(name string, value int) error
+func (c *Client) Histogram(name string, value int, tags ...string) error
 ```
 Histogram is an alias of .Duration() until the statsd protocol figures its shit
 out.
@@ -86,21 +86,21 @@ out.
 #### func (*Client) Incr
 
 ```go
-func (c *Client) Incr(name string) error
+func (c *Client) Incr(name string, tags ...string) error
 ```
 Incr increments the counter for the given bucket by 1 at a rate of 1.
 
 #### func (*Client) IncrBy
 
 ```go
-func (c *Client) IncrBy(name string, n int) error
+func (c *Client) IncrBy(name string, n int, tags ...string) error
 ```
 IncrBy increments the counter for the given bucket by N at a rate of 1.
 
 #### func (*Client) Increment
 
 ```go
-func (c *Client) Increment(name string, count int, rate float64) error
+func (c *Client) Increment(name string, count int, rate float64, tags ...string) error
 ```
 Increment increments the counter for the given bucket.
 
