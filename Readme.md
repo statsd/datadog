@@ -121,4 +121,3 @@ Unique records unique occurences of events.
 
 Unsupported.
 
-github.com/ooyala/go-dogstatsd
