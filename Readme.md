@@ -24,6 +24,14 @@ func New(addr string) (*Client, error)
 ```
 New statsd client.
 
+#### func (*Client) SetPrefix
+
+```go
+func (c *Client) SetPrefix(prefix string)
+```
+Sets the DataDog namespace to the prefix provided.
+
+
 #### func (*Client) Annotate
 
 ```go
@@ -112,3 +120,4 @@ func (c *Client) Unique(name string, value int, rate float64) error
 Unique records unique occurences of events.
 
 Unsupported.
+

@@ -90,6 +90,11 @@ func (c *Client) Flush() error {
 	return nil
 }
 
+// Sets the DataDog namespace to the prefix provided.
+func (c *Client) SetPrefix(prefix string) {
+	c.DataDog.Namespace = prefix
+}
+
 func millisecond(d time.Duration) int {
 	return int(d.Seconds() * 1000)
 }
