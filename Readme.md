@@ -1,3 +1,5 @@
+[![Build Status](https://semaphoreci.com/api/v1/projects/d0d424be-4adc-4221-b720-4e95dbb37c6d/663599/badge.svg)](https://semaphoreci.com/yields/datadog)
+
 # datadog
 --
     import "github.com/statsd/datadog"
