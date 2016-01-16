@@ -1,4 +1,4 @@
-[![Build Status](https://semaphoreci.com/api/v1/projects/d0d424be-4adc-4221-b720-4e95dbb37c6d/663599/badge.svg)](https://semaphoreci.com/yields/datadog)
+[![Build Status](https://semaphoreci.com/api/v1/projects/78ca1ac8-9aec-4b33-bc9e-a4ff4fc5b70e/663600/badge.svg)](https://semaphoreci.com/yields/datadog)
 
 # datadog
 --
