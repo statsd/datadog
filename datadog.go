@@ -1,100 +1,191 @@
-// Package datadog provides a wrapper around the DataDog-specific
-// statsd client which augments the protocol to support tags.
+// Package datadog implements a simple dogstatsd client
+//
+// 			c, err := Dial(":5000")
+// 			c.SetPrefix("myprogram")
+// 			c.SetTags("env:stage", "program:myprogram")
+// 			c.Incr("count")
+//
 package datadog
 
 import (
+	"bufio"
+	"bytes"
+	"io"
+	"math/rand"
+	"net"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
-
-	"github.com/ooyala/go-dogstatsd"
 )
 
-// Client.
+// maxBufSize is the default buffer size
+// when that size is reached the packet is flushed.
+const maxBufSize = 512
+
+// Client represents a datadog client.
 type Client struct {
-	DataDog *dogstatsd.Client
+	conn   net.Conn
+	buf    *bufio.Writer
+	prefix string
+	tags   []string
+	rand   func() float64
+	sync.Mutex
 }
 
-// New statsd client.
-func New(addr string) (*Client, error) {
-	c, err := dogstatsd.New(addr)
+// Dial connects to `addr` and returns a client.
+func Dial(addr string) (*Client, error) {
+	return DialSize(addr, maxBufSize)
+}
 
+// DialSize connects with the given buffer `size`.
+// see https://git.io/vzC0D.
+func DialSize(addr string, size int) (*Client, error) {
+	c, err := net.Dial("udp", addr)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		DataDog: c,
+		buf:  bufio.NewWriterSize(c, size),
+		rand: rand.Float64,
+		conn: c,
 	}, nil
 }
 
-// Increment increments the counter for the given bucket.
+// New returns a new Client with writer `w`, useful for testing.
+func New(w io.Writer) *Client {
+	return &Client{
+		buf: bufio.NewWriterSize(w, 512),
+	}
+}
+
+// SetPrefix sets global prefix `name`.
+func (c *Client) SetPrefix(name string) {
+	c.Lock()
+	defer c.Unlock()
+
+	if name[len(name)-1] != '.' {
+		name += "."
+	}
+
+	c.prefix = name
+}
+
+// SetTags sets global tags `tags...`.
+func (c *Client) SetTags(tags ...string) {
+	c.Lock()
+	defer c.Unlock()
+	c.tags = tags
+}
+
+// Increment incremenets the given stat `name`
+// with the given `count`, `rate` and `tags...`.
 func (c *Client) Increment(name string, count int, rate float64, tags ...string) error {
-	return c.DataDog.Count(name, int64(count), tags, rate)
+	value := strconv.Itoa(count) + "|c"
+	return c.send(name, value, rate, tags)
 }
 
-// Incr increments the counter for the given bucket by 1 at a rate of 1.
-func (c *Client) Incr(name string, tags ...string) error {
-	return c.Increment(name, 1, 1, tags...)
-}
-
-// IncrBy increments the counter for the given bucket by N at a rate of 1.
+// IncrBy increments counter `name` by `n` with optional `tags`.
 func (c *Client) IncrBy(name string, n int, tags ...string) error {
 	return c.Increment(name, n, 1, tags...)
 }
 
-// Decrement decrements the counter for the given bucket.
-func (c *Client) Decrement(name string, count int, rate float64, tags ...string) error {
-	return c.Increment(name, -count, rate, tags...)
+// DecrBy decrements counter `name` by `n` with optional `tags`.
+func (c *Client) DecrBy(name string, n int, tags ...string) error {
+	return c.Increment(name, -n, 1, tags...)
 }
 
-// Decr decrements the counter for the given bucket by 1 at a rate of 1.
+// Incr increments counter `name` with `tags`.
+func (c *Client) Incr(name string, tags ...string) error {
+	return c.IncrBy(name, 1, tags...)
+}
+
+// Decr decrements counter `name` with `tags`.
 func (c *Client) Decr(name string, tags ...string) error {
-	return c.Increment(name, -1, 1, tags...)
+	return c.DecrBy(name, 1, tags...)
 }
 
-// DecrBy decrements the counter for the given bucket by N at a rate of 1.
-func (c *Client) DecrBy(name string, value int, tags ...string) error {
-	return c.Increment(name, -value, 1, tags...)
+// Gauge sets the metric `name` to `n` at a given time.
+func (c *Client) Gauge(name string, n int, tags ...string) error {
+	value := strconv.Itoa(n) + "|g"
+	return c.send(name, value, 1, tags)
 }
 
-// Duration records time spent for the given bucket with time.Duration.
-func (c *Client) Duration(name string, duration time.Duration, tags ...string) error {
-	return c.Histogram(name, millisecond(duration), tags...)
+// Histogram measures the statistical distribution of a metric `name`
+// with the given `v` value, `rate` and `tags`.
+func (c *Client) Histogram(name string, v int, tags ...string) error {
+	value := strconv.Itoa(v) + "|h"
+	return c.send(name, value, 1, tags)
 }
 
-// Histogram is an alias of .Duration() until the statsd protocol figures its shit out.
-func (c *Client) Histogram(name string, value int, tags ...string) error {
-	return c.DataDog.Histogram(name, float64(value), tags, 1)
+// Duration uses `Histogram()` to send the given `d` duration.
+func (c *Client) Duration(name string, d time.Duration, tags ...string) error {
+	return c.Histogram(name, int(d.Seconds()*1000), tags...)
 }
 
-// Gauge records arbitrary values for the given bucket.
-func (c *Client) Gauge(name string, value int, tags ...string) error {
-	return c.DataDog.Gauge(name, float64(value), tags, 1)
+// Unique records a unique occurence of events.
+func (c *Client) Unique(name, value string, tags ...string) error {
+	return c.send(name, value+"|s", 1, tags)
 }
 
-// Annotate sends an annotation.
-func (c *Client) Annotate(name string, value string, args ...interface{}) error {
-	return c.DataDog.Event(name, value, nil)
-}
-
-// Unique records unique occurences of events.
-//
-// Unsupported.
-func (c *Client) Unique(name string, value int, rate float64) error {
-	return nil // Unsupported
-}
-
-// Flush flushes writes any buffered data to the network.
-//
-// Unsupported.
+// Flush will flush the underlying buffer.
 func (c *Client) Flush() error {
-	return nil
+	return c.buf.Flush()
 }
 
-// Sets the DataDog namespace to the prefix provided.
-func (c *Client) SetPrefix(prefix string) {
-	c.DataDog.Namespace = prefix
+// Close will flush and close the connection.
+func (c *Client) Close() error {
+	var err error
+
+	defer func() {
+		if e := c.conn.Close(); err == nil {
+			err = e
+		}
+	}()
+
+	err = c.Flush()
+	return err
 }
 
-func millisecond(d time.Duration) int {
-	return int(d.Seconds() * 1000)
+// send sends the given `stat` with `format`, `rate`
+// `tags` and the given `args...`.
+func (c *Client) send(stat, value string, rate float64, tags []string) error {
+	var buf bytes.Buffer
+
+	c.Lock()
+	defer c.Unlock()
+
+	if c.buf.Buffered() > 0 {
+		buf.WriteString("\n")
+	}
+
+	buf.WriteString(c.prefix)
+	buf.WriteString(stat + ":" + value)
+
+	// rate
+	if rate < 1 {
+		if c.rand() < rate {
+			buf.WriteString("|@" + strconv.FormatFloat(rate, 'f', 1, 64))
+		} else {
+			return nil
+		}
+	}
+
+	// tags
+	if len(c.tags)+len(tags) > 0 {
+		tags = append(c.tags, tags...)
+		buf.WriteString("|#" + strings.Join(tags, ","))
+	}
+
+	// flush if there's no space left.
+	if c.buf.Available() < buf.Len() {
+		err := c.buf.Flush()
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err := c.buf.Write(buf.Bytes())
+	return err
 }

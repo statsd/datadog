@@ -2,8 +2,12 @@
 --
     import "github.com/statsd/datadog"
 
-Package datadog provides a wrapper around the DataDog-specific statsd client
-which augments the protocol to support tags.
+Package datadog implements a simple dogstatsd client
+
+    c, err := Dial(":5000")
+    c.SetPrefix("myprogram")
+    c.SetTags("env:stage", "program:myprogram")
+    c.Incr("count")
 
 ## Usage
 
@@ -11,113 +15,122 @@ which augments the protocol to support tags.
 
 ```go
 type Client struct {
-  DataDog *dogstatsd.Client
+	sync.Mutex
 }
 ```
 
-Client.
+Client represents a datadog client.
+
+#### func  Dial
+
+```go
+func Dial(addr string) (*Client, error)
+```
+Dial connects to `addr` and returns a client.
+
+#### func  DialSize
+
+```go
+func DialSize(addr string, size int) (*Client, error)
+```
+DialSize connects with the given buffer `size`. see https://git.io/vzC0D.
 
 #### func  New
 
 ```go
-func New(addr string) (*Client, error)
+func New(w io.Writer) *Client
 ```
-New statsd client.
+New returns a new Client with writer `w`, useful for testing.
 
-#### func (*Client) SetPrefix
+#### func (*Client) Close
 
 ```go
-func (c *Client) SetPrefix(prefix string)
+func (c *Client) Close() error
 ```
-Sets the DataDog namespace to the prefix provided.
-
-
-#### func (*Client) Annotate
-
-```go
-func (c *Client) Annotate(name string, value string, args ...interface{}) error
-```
-Annotate sends an annotation.
+Close will flush and close the connection.
 
 #### func (*Client) Decr
 
 ```go
 func (c *Client) Decr(name string, tags ...string) error
 ```
-Decr decrements the counter for the given bucket by 1 at a rate of 1.
+Decr decrements counter `name` with `tags`.
 
 #### func (*Client) DecrBy
 
 ```go
-func (c *Client) DecrBy(name string, value int, tags ...string) error
+func (c *Client) DecrBy(name string, n int, tags ...string) error
 ```
-DecrBy decrements the counter for the given bucket by N at a rate of 1.
-
-#### func (*Client) Decrement
-
-```go
-func (c *Client) Decrement(name string, count int, rate float64, tags ...string) error
-```
-Decrement decrements the counter for the given bucket.
+DecrBy decrements counter `name` by `n` with optional `tags`.
 
 #### func (*Client) Duration
 
 ```go
-func (c *Client) Duration(name string, duration time.Duration, tags ...string) error
+func (c *Client) Duration(name string, d time.Duration, tags ...string) error
 ```
-Duration records time spent for the given bucket with time.Duration.
+Duration uses `Histogram()` to send the given `d` duration.
 
 #### func (*Client) Flush
 
 ```go
 func (c *Client) Flush() error
 ```
-Flush flushes writes any buffered data to the network.
-
-Unsupported.
+Flush will flush the underlying buffer.
 
 #### func (*Client) Gauge
 
 ```go
-func (c *Client) Gauge(name string, value int, tags ...string) error
+func (c *Client) Gauge(name string, n int, tags ...string) error
 ```
-Gauge records arbitrary values for the given bucket.
+Gauge sets the metric `name` to `n` at a given time.
 
 #### func (*Client) Histogram
 
 ```go
-func (c *Client) Histogram(name string, value int, tags ...string) error
+func (c *Client) Histogram(name string, v int, tags ...string) error
 ```
-Histogram is an alias of .Duration() until the statsd protocol figures its shit
-out.
+Histogram measures the statistical distribution of a metric `name` with the
+given `v` value, `rate` and `tags`.
 
 #### func (*Client) Incr
 
 ```go
 func (c *Client) Incr(name string, tags ...string) error
 ```
-Incr increments the counter for the given bucket by 1 at a rate of 1.
+Incr increments counter `name` with `tags`.
 
 #### func (*Client) IncrBy
 
 ```go
 func (c *Client) IncrBy(name string, n int, tags ...string) error
 ```
-IncrBy increments the counter for the given bucket by N at a rate of 1.
+IncrBy increments counter `name` by `n` with optional `tags`.
 
 #### func (*Client) Increment
 
 ```go
 func (c *Client) Increment(name string, count int, rate float64, tags ...string) error
 ```
-Increment increments the counter for the given bucket.
+Increment incremenets the given stat `name` with the given `count`, `rate` and
+`tags...`.
+
+#### func (*Client) SetPrefix
+
+```go
+func (c *Client) SetPrefix(name string)
+```
+SetPrefix sets global prefix `name`.
+
+#### func (*Client) SetTags
+
+```go
+func (c *Client) SetTags(tags ...string)
+```
+SetTags sets global tags `tags...`.
 
 #### func (*Client) Unique
 
 ```go
-func (c *Client) Unique(name string, value int, rate float64) error
+func (c *Client) Unique(name, value string, tags ...string) error
 ```
-Unique records unique occurences of events.
-
-Unsupported.
-
+Unique records a unique occurence of events.
