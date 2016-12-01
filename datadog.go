@@ -107,8 +107,8 @@ func (c *Client) Decr(name string, tags ...string) error {
 }
 
 // Gauge sets the metric `name` to `n` at a given time.
-func (c *Client) Gauge(name string, n int, tags ...string) error {
-	value := strconv.Itoa(n) + "|g"
+func (c *Client) Gauge(name string, n int64, tags ...string) error {
+	value := strconv.FormatInt(n, 10) + "|g"
 	return c.send(name, value, 1, tags)
 }
 
