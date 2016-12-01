@@ -114,14 +114,14 @@ func (c *Client) Gauge(name string, n int64, tags ...string) error {
 
 // Histogram measures the statistical distribution of a metric `name`
 // with the given `v` value, `rate` and `tags`.
-func (c *Client) Histogram(name string, v int, tags ...string) error {
-	value := strconv.Itoa(v) + "|h"
+func (c *Client) Histogram(name string, v int64, tags ...string) error {
+	value := strconv.FormatInt(v, 10) + "|h"
 	return c.send(name, value, 1, tags)
 }
 
 // Duration uses `Histogram()` to send the given `d` duration.
 func (c *Client) Duration(name string, d time.Duration, tags ...string) error {
-	return c.Histogram(name, int(d.Seconds()*1000), tags...)
+	return c.Histogram(name, int64(d.Seconds()*1000), tags...)
 }
 
 // Unique records a unique occurence of events.
