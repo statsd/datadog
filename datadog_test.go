@@ -99,14 +99,24 @@ func TestHistogram(t *testing.T) {
 	assert.Equal(t, buf.String(), `size:512|h`)
 }
 
+func TestHistogramFloat(t *testing.T) {
+	buf := new(bytes.Buffer)
+	client := New(buf)
+
+	client.Histogram("size", 0.5)
+	client.Flush()
+
+	assert.Equal(t, buf.String(), `size:0.5|h`)
+}
+
 func TestDuration(t *testing.T) {
 	buf := new(bytes.Buffer)
 	client := New(buf)
 
-	client.Duration("duration", time.Second)
+	client.Duration("duration", time.Millisecond*500)
 	client.Flush()
 
-	assert.Equal(t, buf.String(), `duration:1000|h`)
+	assert.Equal(t, buf.String(), `duration:0.5|h`)
 }
 
 func TestUnique(t *testing.T) {
